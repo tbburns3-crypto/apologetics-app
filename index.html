@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>My Apologetics Map</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#10171a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Apologetics" />
+  <link rel="apple-touch-icon" href="icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <style>
+    body { margin: 0; padding: 0; background: #10171a; }
+    #root { min-height: 100vh; }
+    #loading {
+      position: fixed; inset: 0; background: #10171a;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #6fb6a8; font-family: Georgia, serif; gap: 18px; z-index: 9999;
+    }
+    #loading .dot-row { display: flex; gap: 10px; }
+    #loading .dot {
+      width: 10px; height: 10px; border-radius: 50%; background: #6fb6a8;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    #loading .dot:nth-child(2) { animation-delay: .2s; }
+    #loading .dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes pulse { 0%,100%{opacity:.25;transform:scale(.8)} 50%{opacity:1;transform:scale(1)} }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke="#26393f" stroke-width="2"/>
+      <rect x="22" y="8" width="4" height="32" rx="2" fill="#6fb6a8"/>
+      <rect x="8" y="22" width="32" height="4" rx="2" fill="#6fb6a8"/>
+    </svg>
+    <span style="font-size:14px;color:#aebec3;letter-spacing:.05em;">Loading your map…</span>
+    <div class="dot-row"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  </div>
+
+  <div id="root"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7/babel.min.js"></script>
+
+  <script type="text/babel">
+    const { useState, useMemo, useRef, useEffect } = React;
+
+    // -------------------------------------------------------------------------
+    // SCRIPTURE LIBRARY (ESV + KJV, reused across worldviews)
+    // -------------------------------------------------------------------------
+    const VERSES = {
+      "John 1:1-3": {
+        ref: "John 1:1–3",
+        esv: "In the beginning was the Word, and the Word was with God, and the Word was God. He was in the beginning with God. All things were made through him, and without him was not any thing made that was made.",
+        kjv: "In the beginning was the Word, and the Word was with God, and the Word was God. The same was in the beginning with God. All things were made by him; and without him was not any thing made that was made.",
+        original: {
+          lang: "Greek",
+          script: "Ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ θεὸς ἦν ὁ λόγος.",
+          translit: "En archē ēn ho logos, kai ho logos ēn pros ton theon, kai theos ēn ho logos.",
+          notes: [
+            ["θεὸς ἦν ὁ λόγος", "theos ēn ho logos", "'the Word was God.' theos has no article here, but Greek regularly drops the article on a pre-verbal predicate noun (Colwell's rule). It marks the Word as God by nature, not 'a god.'"],
+            ["πρὸς τὸν θεόν", "pros ton theon", "'with God' — face-to-face distinction. The Word is with God and is God: two persons, one being."],
+          ],
+        },
+      },
+      "John 1:14": {
+        ref: "John 1:14",
+        esv: "And the Word became flesh and dwelt among us, and we have seen his glory, glory as of the only Son from the Father, full of grace and truth.",
+        kjv: "And the Word was made flesh, and dwelt among us, (and we beheld his glory, the glory as of the only begotten of the Father,) full of grace and truth.",
+      },
+      "John 8:56-59": {
+        ref: "John 8:56–59",
+        esv: "\"Your father Abraham rejoiced that he would see my day. He saw it and was glad.\" So the Jews said to him, \"You are not yet fifty years old, and have you seen Abraham?\" Jesus said to them, \"Truly, truly, I say to you, before Abraham was, I am.\" So they picked up stones to throw at him, but Jesus hid himself and went out of the temple.",
+        kjv: "Your father Abraham rejoiced to see my day: and he saw it, and was glad. Then said the Jews unto him, Thou art not yet fifty years old, and hast thou seen Abraham? Jesus said unto them, Verily, verily, I say unto you, Before Abraham was, I am. Then took they up stones to cast at him: but Jesus hid himself, and went out of the temple.",
+        original: {
+          lang: "Greek",
+          script: "πρὶν Ἀβραὰμ γενέσθαι ἐγὼ εἰμί.",
+          translit: "prin Abraam genesthai egō eimi.",
+          notes: [
+            ["ἐγὼ εἰμί", "egō eimi", "'I am' — present tense set against Abraham's past 'came to be' (genesthai). It echoes God's self-naming to Moses (Exodus 3:14, LXX egō eimi). The crowd's response — picking up stones — shows they heard a divine claim, not bad grammar."],
+          ],
+        },
+      },
+      "John 10:27-33": {
+        ref: "John 10:27–33",
+        esv: "\"My sheep hear my voice, and I know them, and they follow me. I give them eternal life, and they will never perish, and no one will snatch them out of my hand. My Father, who has given them to me, is greater than all, and no one is able to snatch them out of the Father's hand. I and the Father are one.\" The Jews picked up stones again to stone him. Jesus answered them, \"I have shown you many good works from the Father; for which of them are you going to stone me?\" The Jews answered him, \"It is not for a good work that we are going to stone you but for blasphemy, because you, being a man, make yourself God.\"",
+        kjv: "My sheep hear my voice, and I know them, and they follow me: And I give unto them eternal life; and they shall never perish, neither shall any man pluck them out of my hand. My Father, which gave them me, is greater than all; and no man is able to pluck them out of my Father's hand. I and my Father are one. Then the Jews took up stones again to stone him. Jesus answered them, Many good works have I shewed you from my Father; for which of those works do ye stone me? The Jews answered him, saying, For a good work we stone thee not; but for blasphemy; and because that thou, being a man, makest thyself God.",
+        original: {
+          lang: "Greek",
+          script: "ἐγὼ καὶ ὁ πατὴρ ἕν ἐσμεν.",
+          translit: "egō kai ho patēr hen esmen.",
+          notes: [
+            ["ἕν ἐσμεν", "hen esmen", "'we are one' — hen is neuter ('one thing'), not masculine ('one person'). One in essence/power, while 'we are' (plural) keeps Father and Son distinct. Guards against both Arianism and modalism."],
+          ],
+        },
+      },
+      "John 20:26-29": {
+        ref: "John 20:26–29",
+        esv: "Eight days later, his disciples were inside again, and Thomas was with them. Although the doors were locked, Jesus came and stood among them and said, \"Peace be with you.\" Then he said to Thomas, \"Put your finger here, and see my hands; and put out your hand, and place it in my side. Do not disbelieve, but believe.\" Thomas answered him, \"My Lord and my God!\" Jesus said to him, \"Have you believed because you have seen me? Blessed are those who have not seen and yet have believed.\"",
+        kjv: "And after eight days again his disciples were within, and Thomas with them: then came Jesus, the doors being shut, and stood in the midst, and said, Peace be unto you. Then saith he to Thomas, Reach hither thy finger, and behold my hands; and reach hither thy hand, and thrust it into my side: and be not faithless, but believing. And Thomas answered and said unto him, My Lord and my God. Jesus said unto him, Thomas, because thou hast seen me, thou hast believed: blessed are they that have not seen, and yet have believed.",
+        original: {
+          lang: "Greek",
+          script: "ὁ κύριός μου καὶ ὁ θεός μου.",
+          translit: "ho kyrios mou kai ho theos mou.",
+          notes: [
+            ["ὁ θεός μου", "ho theos mou", "'my God' — with the definite article, addressed directly to Jesus. Jesus accepts the worship and blesses it rather than correcting it (contrast Acts 10:25–26; Revelation 19:10)."],
+          ],
+        },
+      },
+      "John 20:28": {
+        ref: "John 20:28",
+        esv: "Thomas answered him, \"My Lord and my God!\"",
+        kjv: "And Thomas answered and said unto him, My Lord and my God.",
+      },
+      "Matthew 28:18-20": {
+        ref: "Matthew 28:18–20",
+        esv: "And Jesus came and said to them, \"All authority in heaven and on earth has been given to me. Go therefore and make disciples of all nations, baptizing them in the name of the Father and of the Son and of the Holy Spirit, teaching them to observe all that I have commanded you. And behold, I am with you always, to the end of the age.\"",
+        kjv: "And Jesus came and spake unto them, saying, All power is given unto me in heaven and in earth. Go ye therefore, and teach all nations, baptizing them in the name of the Father, and of the Son, and of the Holy Ghost: Teaching them to observe all things whatsoever I have commanded you: and, lo, I am with you alway, even unto the end of the world. Amen.",
+        original: {
+          lang: "Greek",
+          script: "εἰς τὸ ὄνομα τοῦ πατρὸς καὶ τοῦ υἱοῦ καὶ τοῦ ἁγίου πνεύματος",
+          translit: "eis to onoma tou patros kai tou huiou kai tou hagiou pneumatos",
+          notes: [
+            ["τὸ ὄνομα", "to onoma", "'the name' — singular, then three persons named under that one name. One name (one being), three persons: a compact Trinity formula on Jesus' own lips."],
+          ],
+        },
+      },
+      "Matthew 28:19": {
+        ref: "Matthew 28:19",
+        esv: "Go therefore and make disciples of all nations, baptizing them in the name of the Father and of the Son and of the Holy Spirit.",
+        kjv: "Go ye therefore, and teach all nations, baptizing them in the name of the Father, and of the Son, and of the Holy Ghost.",
+      },
+      "Isaiah 53:4-6": {
+        ref: "Isaiah 53:4–6",
+        esv: "Surely he has borne our griefs and carried our sorrows; yet we esteemed him stricken, smitten by God, and afflicted. But he was pierced for our transgressions; he was crushed for our iniquities; upon him was the chastisement that brought us peace, and with his wounds we are healed. All we like sheep have gone astray; we have turned—every one—to his own way; and the LORD has laid on him the iniquity of us all.",
+        kjv: "Surely he hath borne our griefs, and carried our sorrows: yet we did esteem him stricken, smitten of God, and afflicted. But he was wounded for our transgressions, he was bruised for our iniquities: the chastisement of our peace was upon him; and with his stripes we are healed. All we like sheep have gone astray; we have turned every one to his own way; and the LORD hath laid on him the iniquity of us all.",
+        original: {
+          lang: "Hebrew",
+          script: "וַיהוָה הִפְגִּיעַ בּוֹ אֵת עֲוֺן כֻּלָּנוּ",
+          translit: "va-YHWH hifgia bo et avon kullanu",
+          notes: [
+            ["עֲוֺן כֻּלָּנוּ", "avon kullanu", "'the iniquity of us all.' The servant bears guilt that belongs to others — substitution, not Israel suffering for its own sins."],
+            ["הִפְגִּיעַ בּוֹ", "hifgia bo", "'caused to meet/land on him.' The LORD actively lays the punishment on the servant; the servant is distinct from the 'us all' whose sin it is."],
+          ],
+        },
+      },
+      "Isaiah 53:8-10": {
+        ref: "Isaiah 53:8–10",
+        esv: "By oppression and judgment he was taken away; and as for his generation, who considered that he was cut off out of the land of the living, stricken for the transgression of my people? And they made his grave with the wicked and with a rich man in his death, although he had done no violence, and there was no deceit in his mouth. Yet it was the will of the LORD to crush him; he has put him to grief; when his soul makes an offering for guilt, he shall see his offspring; he shall prolong his days; the will of the LORD shall prosper in his hand.",
+        kjv: "He was taken from prison and from judgment: and who shall declare his generation? for he was cut off out of the land of the living: for the transgression of my people was he stricken. And he made his grave with the wicked, and with the rich in his death; because he had done no violence, neither was any deceit in his mouth. Yet it pleased the LORD to bruise him; he hath put him to grief: when thou shalt make his soul an offering for sin, he shall see his seed, he shall prolong his days, and the pleasure of the LORD shall prosper in his hand.",
+        original: {
+          lang: "Hebrew",
+          script: "מִפֶּשַׁע עַמִּי נֶגַע לָמוֹ",
+          translit: "mi-pesha ammi nega lamo",
+          notes: [
+            ["עַמִּי", "ammi", "'my people' — God's people. The servant is stricken FOR 'my people,' so the servant cannot simply BE the people. This is the strongest textual pressure against the 'Israel = servant' reading."],
+          ],
+        },
+      },
+      "Psalm 22:16-18": {
+        ref: "Psalm 22:16–18",
+        esv: "For dogs encompass me; a company of evildoers encircles me; they have pierced my hands and feet—I can count all my bones—they stare and gloat over me; they divide my garments among them, and for my clothing they cast lots.",
+        kjv: "For dogs have compassed me: the assembly of the wicked have inclosed me: they pierced my hands and my feet. I may tell all my bones: they look and stare upon me. They part my garments among them, and cast lots upon my vesture.",
+        original: {
+          lang: "Hebrew",
+          script: "כָּאֲרִי יָדַי וְרַגְלָי",
+          translit: "ka'ari / ka'aru yaday ve-raglay",
+          notes: [
+            ["כארי / כארו", "ka'ari / ka'aru", "Masoretic text reads ka'ari ('like a lion'); many older witnesses (LXX, and a Dead Sea Scroll fragment from Nahal Hever reading כארו) support 'they pierced.' The textual dispute is real and worth naming honestly rather than asserting only one reading."],
+          ],
+        },
+      },
+      "Psalm 22:1": {
+        ref: "Psalm 22:1",
+        esv: "My God, my God, why have you forsaken me? Why are you so far from saving me, from the words of my groaning?",
+        kjv: "My God, my God, why hast thou forsaken me? why art thou so far from helping me, and from the words of my roaring?",
+      },
+      "1 Corinthians 15:3-8": {
+        ref: "1 Corinthians 15:3–8",
+        esv: "For I delivered to you as of first importance what I also received: that Christ died for our sins in accordance with the Scriptures, that he was buried, that he was raised on the third day in accordance with the Scriptures, and that he appeared to Cephas, then to the twelve. Then he appeared to more than five hundred brothers at one time, most of whom are still alive, though some have fallen asleep. Then he appeared to James, then to all the apostles. Last of all, as to one untimely born, he appeared also to me.",
+        kjv: "For I delivered unto you first of all that which I also received, how that Christ died for our sins according to the scriptures; And that he was buried, and that he rose again the third day according to the scriptures: And that he was seen of Cephas, then of the twelve: After that, he was seen of above five hundred brethren at once; of whom the greater part remain unto this present, but some are fallen asleep. After that, he was seen of James; then of all the apostles. And last of all he was seen of me also, as of one born out of due time.",
+      },
+      "Colossians 1:15-17": {
+        ref: "Colossians 1:15–17",
+        esv: "He is the image of the invisible God, the firstborn of all creation. For by him all things were created, in heaven and on earth, visible and invisible, whether thrones or dominions or rulers or authorities—all things were created through him and for him. And he is before all things, and in him all things hold together.",
+        kjv: "Who is the image of the invisible God, the firstborn of every creature: For by him were all things created, that are in heaven, and that are in earth, visible and invisible, whether they be thrones, or dominions, or principalities, or powers: all things were created by him, and for him: And he is before all things, and by him all things consist.",
+        original: {
+          lang: "Greek",
+          script: "πρωτότοκος πάσης κτίσεως ... τὰ πάντα ἐν αὐτῷ ἐκτίσθη",
+          translit: "prōtotokos pasēs ktiseōs ... ta panta en autō ektisthē",
+          notes: [
+            ["πρωτότοκος", "prōtotokos", "'firstborn' — in context a title of rank/heir (cf. Psalm 89:27, where the firstborn is 'highest of the kings'), not 'first created.' The next clause proves it: 'all things were created in/through him.'"],
+            ["τὰ πάντα", "ta panta", "'all things' were created in him. If he created ALL things, he is not himself a created thing. The NWT inserts 'other' ('all other things') four times here with no textual basis."],
+          ],
+        },
+      },
+      "Hebrews 1:5-13": {
+        ref: "Hebrews 1:8 (from 5–13)",
+        esv: "But of the Son he says, \"Your throne, O God, is forever and ever, the scepter of uprightness is the scepter of your kingdom.\"",
+        kjv: "But unto the Son he saith, Thy throne, O God, is for ever and ever: a sceptre of righteousness is the sceptre of thy kingdom.",
+        original: {
+          lang: "Greek",
+          script: "ὁ θρόνος σου ὁ θεὸς εἰς τὸν αἰῶνα τοῦ αἰῶνος",
+          translit: "ho thronos sou ho theos eis ton aiōna tou aiōnos",
+          notes: [
+            ["ὁ θεός (vocative)", "ho theos", "The Father addresses the Son directly as 'O God.' The whole chapter contrasts the Son with the angels — so the Son is not an angel (which is the Watchtower's Michael identification)."],
+          ],
+        },
+      },
+      "Hebrews 1:1-3": {
+        ref: "Hebrews 1:1–3",
+        esv: "Long ago, at many times and in many ways, God spoke to our fathers by the prophets, but in these last days he has spoken to us by his Son, whom he appointed the heir of all things, through whom also he created the world. He is the radiance of the glory of God and the exact imprint of his nature, and he upholds the universe by the word of his power. After making purification for sins, he sat down at the right hand of the Majesty on high.",
+        kjv: "God, who at sundry times and in divers manners spake in time past unto the fathers by the prophets, hath in these last days spoken unto us by his Son, whom he hath appointed heir of all things, by whom also he made the worlds; Who being the brightness of his glory, and the express image of his person, and upholding all things by the word of his power, when he had by himself purged our sins, sat down on the right hand of the Majesty on high.",
+      },
+      "Revelation 1:17-18": {
+        ref: "Revelation 1:17–18",
+        esv: "When I saw him, I fell at his feet as though dead. But he laid his right hand on me, saying, \"Fear not, I am the first and the last, and the living one. I died, and behold I am alive forevermore, and I have the keys of Death and Hades.\"",
+        kjv: "And when I saw him, I fell at his feet as dead. And he laid his right hand upon me, saying unto me, Fear not; I am the first and the last: I am he that liveth, and was dead; and, behold, I am alive for evermore, Amen; and have the keys of hell and of death.",
+      },
+      "Isaiah 44:6": {
+        ref: "Isaiah 44:6",
+        esv: "Thus says the LORD, the King of Israel and his Redeemer, the LORD of hosts: \"I am the first and I am the last; besides me there is no god.\"",
+        kjv: "Thus saith the LORD the King of Israel, and his redeemer the LORD of hosts; I am the first, and I am the last; and beside me there is no God.",
+        original: {
+          lang: "Hebrew",
+          script: "אֲנִי רִאשׁוֹן וַאֲנִי אַחֲרוֹן וּמִבַּלְעָדַי אֵין אֱלֹהִים",
+          translit: "ani rishon va-ani acharon u-mibal'aday ein elohim",
+          notes: [
+            ["רִאשׁוֹן ... אַחֲרוֹן", "rishon ... acharon", "'first ... last' — God's exclusive title. Jesus claims exactly this title in Revelation 1:17. Either he is the LORD, or he steals God's name."],
+          ],
+        },
+      },
+      "Isaiah 43:10": {
+        ref: "Isaiah 43:10",
+        esv: "\"You are my witnesses,\" declares the LORD, \"and my servant whom I have chosen, that you may know and believe me and understand that I am he. Before me no god was formed, nor shall there be any after me.\"",
+        kjv: "Ye are my witnesses, saith the LORD, and my servant whom I have chosen: that ye may know and believe me, and understand that I am he: before me there was no God formed, neither shall there be after me.",
+      },
+      "Isaiah 44:6-8": {
+        ref: "Isaiah 44:6–8",
+        esv: "Thus says the LORD, the King of Israel and his Redeemer, the LORD of hosts: \"I am the first and I am the last; besides me there is no god... Is there a God besides me? There is no Rock; I know not any.\"",
+        kjv: "Thus saith the LORD the King of Israel, and his redeemer the LORD of hosts; I am the first, and I am the last; and beside me there is no God... Is there a God beside me? yea, there is no God; I know not any.",
+      },
+      "Galatians 1:8-9": {
+        ref: "Galatians 1:8–9",
+        esv: "But even if we or an angel from heaven should preach to you a gospel contrary to the one we preached to you, let him be accursed. As we have said before, so now I say again: If anyone is preaching to you a gospel contrary to the one you received, let him be accursed.",
+        kjv: "But though we, or an angel from heaven, preach any other gospel unto you than that which we have preached unto you, let him be accursed. As we said before, so say I now again, If any man preach any other gospel unto you than that ye have received, let him be accursed.",
+      },
+      "Jude 1:3": {
+        ref: "Jude 3",
+        esv: "Beloved, although I was very eager to write to you about our common salvation, I found it necessary to write appealing to you to contend for the faith that was once for all delivered to the saints.",
+        kjv: "Beloved, when I gave all diligence to write unto you of the common salvation, it was needful for me to write unto you, and exhort you that ye should earnestly contend for the faith which was once delivered unto the saints.",
+      },
+      "Daniel 7:13-14": {
+        ref: "Daniel 7:13–14",
+        esv: "I saw in the night visions, and behold, with the clouds of heaven there came one like a son of man, and he came to the Ancient of Days and was presented before him. And to him was given dominion and glory and a kingdom, that all peoples, nations, and languages should serve him; his dominion is an everlasting dominion, which shall not pass away, and his kingdom one that shall not be destroyed.",
+        kjv: "I saw in the night visions, and, behold, one like the Son of man came with the clouds of heaven, and came to the Ancient of days, and they brought him near before him. And there was given him dominion, and glory, and a kingdom, that all people, nations, and languages, should serve him: his dominion is an everlasting dominion, which shall not pass away, and his kingdom that which shall not be destroyed.",
+        original: {
+          lang: "Aramaic",
+          script: "וְלֵהּ יְהִיב שָׁלְטָן ... וְכֹל עַמְמַיָּא ... לֵהּ יִפְלְחוּן",
+          translit: "ve-leh yehiv sholtan ... ve-khol ammayya ... leh yiflechun",
+          notes: [
+            ["יִפְלְחוּן", "yiflechun", "'shall serve/worship him.' The Aramaic pelach is used elsewhere in Daniel for religious service owed to God (Daniel 3:28; 7:27). A human-like figure receives the worship due to God, and rides the clouds — a divine prerogative."],
+          ],
+        },
+      },
+      "Jeremiah 31:31-34": {
+        ref: "Jeremiah 31:31–34",
+        esv: "\"Behold, the days are coming, declares the LORD, when I will make a new covenant with the house of Israel and the house of Judah, not like the covenant that I made with their fathers... For I will forgive their iniquity, and I will remember their sin no more.\"",
+        kjv: "Behold, the days come, saith the LORD, that I will make a new covenant with the house of Israel, and with the house of Judah: Not according to the covenant that I made with their fathers... for I will forgive their iniquity, and I will remember their sin no more.",
+      },
+      "Zechariah 12:10": {
+        ref: "Zechariah 12:10",
+        esv: "And I will pour out on the house of David and the inhabitants of Jerusalem a spirit of grace and pleas for mercy, so that, when they look on me, on him whom they have pierced, they shall mourn for him, as one mourns for an only child, and weep bitterly over him, as one weeps over a firstborn.",
+        kjv: "And I will pour upon the house of David, and upon the inhabitants of Jerusalem, the spirit of grace and of supplications: and they shall look upon me whom they have pierced, and they shall mourn for him, as one mourneth for his only son, and shall be in bitterness for him, as one that is in bitterness for his firstborn.",
+        original: {
+          lang: "Hebrew",
+          script: "וְהִבִּיטוּ אֵלַי אֵת אֲשֶׁר־דָּקָרוּ",
+          translit: "ve-hibitu elay et asher-daqaru",
+          notes: [
+            ["אֵלַי ... דָּקָרוּ", "elay ... daqaru", "'they will look on ME whom they pierced.' The speaker is the LORD (YHWH), yet the LORD is the one pierced. God speaks of being pierced — a startling text the New Testament applies to the crucified Christ (John 19:37)."],
+          ],
+        },
+      },
+      "Micah 5:2": {
+        ref: "Micah 5:2",
+        esv: "But you, O Bethlehem Ephrathah, who are too little to be among the clans of Judah, from you shall come forth for me one who is to be ruler in Israel, whose coming forth is from of old, from ancient days.",
+        kjv: "But thou, Bethlehem Ephratah, though thou be little among the thousands of Judah, yet out of thee shall he come forth unto me that is to be ruler in Israel; whose goings forth have been from of old, from everlasting.",
+        original: {
+          lang: "Hebrew",
+          script: "וּמוֹצָאֹתָיו מִקֶּדֶם מִימֵי עוֹלָם",
+          translit: "u-motza'otav mi-qedem mi-ymei olam",
+          notes: [
+            ["מִימֵי עוֹלָם", "mi-ymei olam", "'from days of eternity/ancient days.' The ruler from Bethlehem has origins reaching back beyond his birth — pointing past an ordinary king."],
+          ],
+        },
+      },
+      "Deuteronomy 6:4": {
+        ref: "Deuteronomy 6:4",
+        esv: "Hear, O Israel: The LORD our God, the LORD is one.",
+        kjv: "Hear, O Israel: The LORD our God is one LORD.",
+        original: {
+          lang: "Hebrew",
+          script: "שְׁמַע יִשְׂרָאֵל יְהוָה אֱלֹהֵינוּ יְהוָה אֶחָד",
+          translit: "Shema Yisrael, YHWH Eloheinu, YHWH echad",
+          notes: [
+            ["אֶחָד", "echad", "'one' — a word that can denote compound/composite unity (the same word describes a man and wife becoming 'one flesh,' Genesis 2:24, and evening+morning as 'one day,' Genesis 1:5). The Shema affirms one God; it does not, by itself, rule out plurality within that one being. Hebrew has yachid for absolute singularity, and the Shema does not use it."],
+          ],
+        },
+      },
+      "John 14:6": {
+        ref: "John 14:6",
+        esv: "Jesus said to him, \"I am the way, and the truth, and the life. No one comes to the Father except through me.\"",
+        kjv: "Jesus saith unto him, I am the way, the truth, and the life: no man cometh unto the Father, but by me.",
+      },
+      "Hebrews 9:27": {
+        ref: "Hebrews 9:27",
+        esv: "And just as it is appointed for man to die once, and after that comes judgment.",
+        kjv: "And as it is appointed unto men once to die, but after this the judgment.",
+      },
+      "Acts 4:12": {
+        ref: "Acts 4:12",
+        esv: "And there is salvation in no one else, for there is no other name under heaven given among men by which we must be saved.",
+        kjv: "Neither is there salvation in any other: for there is none other name under heaven given among men, whereby we must be saved.",
+      },
+    };
+
+    // -------------------------------------------------------------------------
+    // QUR'AN LIBRARY
+    // -------------------------------------------------------------------------
+    const QURAN = {
+      "5:46-47": {
+        ref: "Qur'an, Surah Al-Ma'idah (5):46–47",
+        arabic: "وَآتَيْنَاهُ الْإِنجِيلَ فِيهِ هُدًى وَنُورٌ ... وَلْيَحْكُمْ أَهْلُ الْإِنجِيلِ بِمَا أَنزَلَ اللَّهُ فِيهِ",
+        translit: "wa-ataynahu al-Injila fihi hudan wa-nur ... wal-yahkum ahlu al-Injili bima anzala Allahu fihi",
+        translation: "And We gave him the Gospel, in which was guidance and light... So let the People of the Gospel judge by what Allah has revealed therein.",
+        note: "The Qur'an tells the People of the Gospel, in Muhammad's own day, to judge by what is IN the Gospel — which assumes the Gospel they possessed was reliable. This sits in tension with the later claim that the Gospel had been corrupted.",
+      },
+      "10:94": {
+        ref: "Qur'an, Surah Yunus (10):94",
+        arabic: "فَإِن كُنتَ فِي شَكٍّ مِّمَّا أَنزَلْنَا إِلَيْكَ فَاسْأَلِ الَّذِينَ يَقْرَءُونَ الْكِتَابَ مِن قَبْلِكَ",
+        translit: "fa-in kunta fi shakkin mimma anzalna ilayka fas'ali alladhina yaqra'una al-kitaba min qablika",
+        translation: "So if you are in doubt about that which We have revealed to you, then ask those who have been reading the Scripture before you.",
+        note: "Muhammad is told to consult the earlier Scriptures (the Tawrah/Injil) as a check on his own revelation. This presupposes those Scriptures were trustworthy at that time.",
+      },
+      "4:157": {
+        ref: "Qur'an, Surah An-Nisa (4):157",
+        arabic: "وَمَا قَتَلُوهُ وَمَا صَلَبُوهُ وَلَٰكِن شُبِّهَ لَهُمْ",
+        translit: "wa-ma qataluhu wa-ma salabuhu wa-lakin shubbiha lahum",
+        translation: "And they did not kill him, nor did they crucify him; but it was made to appear so to them.",
+        note: "The single Qur'anic verse denying the crucifixion, written ~600 years after the event, against the unanimous testimony of 1st-century eyewitness sources and even hostile non-Christian historians (Tacitus, Josephus). This is the central historical pressure point of the 'Islamic dilemma.'",
+      },
+      "112:1-4": {
+        ref: "Qur'an, Surah Al-Ikhlas (112):1–4",
+        arabic: "قُلْ هُوَ اللَّهُ أَحَدٌ ۝ اللَّهُ الصَّمَدُ ۝ لَمْ يَلِدْ وَلَمْ يُولَدْ ۝ وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ",
+        translit: "qul huwa Allahu ahad. Allahu as-samad. lam yalid wa-lam yulad. wa-lam yakun lahu kufuwan ahad.",
+        translation: "Say, He is Allah, One. Allah, the Eternal Refuge. He neither begets nor is born, nor is there to Him any equivalent.",
+        note: "The core Islamic statement of tawhid (absolute oneness) and the direct denial that God 'begets.' This is the strongest single Muslim text against the Sonship of Christ — and the verse most Christians must answer head-on.",
+      },
+    };
+
+    // -------------------------------------------------------------------------
+    // OTHER SOURCE LIBRARY
+    // -------------------------------------------------------------------------
+    const SOURCES = {
+      "NWT John 1:1": {
+        ref: "New World Translation, John 1:1",
+        original: "the Word was a god",
+        note: "The Watchtower's translation inserts 'a god.' Their stated rule (anarthrous theos = 'a god') is applied inconsistently — elsewhere in the same chapter (e.g. John 1:6, 12, 13, 18) anarthrous theos is rendered 'God.' The translation choice is driven by theology, not by a rule the translators follow consistently.",
+      },
+      "Talmud Sanhedrin 98a": {
+        ref: "Babylonian Talmud, Sanhedrin 98a",
+        original: "The Messiah — what is his name?... The Rabbis say: The leper scholar, as it is said, 'surely he has borne our griefs...' (Isaiah 53:4)",
+        note: "Some classical rabbinic sources themselves read Isaiah 53 messianically. The 'Isaiah 53 = national Israel' reading became dominant largely in the medieval period (Rashi), partly in response to Christian use. Naming this honestly is fair to both sides.",
+      },
+    };
+
+    // -------------------------------------------------------------------------
+    // 14-PART SECTION SKELETON
+    // -------------------------------------------------------------------------
+    const SECTION_DEFS = [
+      { key: "believe", label: "What they believe", icon: "◇" },
+      { key: "whyRight", label: "Why they believe they're correct", icon: "◈" },
+      { key: "againstChrist", label: "Strongest arguments against Christianity", icon: "◆" },
+      { key: "theirTexts", label: "Their strongest texts / sources", icon: "▣" },
+      { key: "christianResponse", label: "Christian response (with verses)", icon: "✚" },
+      { key: "theirRebuttal", label: "Their likely rebuttal", icon: "↩" },
+      { key: "counterRebuttal", label: "Christian counter-rebuttal", icon: "↪" },
+      { key: "historical", label: "Historical evidence", icon: "⌖" },
+      { key: "philosophical", label: "Philosophical pressure points", icon: "◉" },
+      { key: "traps", label: "Common debate traps", icon: "⚠" },
+      { key: "questions", label: "Best questions to ask them", icon: "?" },
+      { key: "theirTension", label: "Their strongest unresolved tension", icon: "△" },
+      { key: "ourTension", label: "Tension Christians must answer", icon: "▽" },
+      { key: "strategy", label: "Final debate strategy", icon: "⚑" },
+    ];
+
+    // helper shorthands
+    const V = (k) => ({ type: "verse", k });
+    const Q = (k) => ({ type: "quran", k });
+    const S = (k) => ({ type: "source", k });
+    const P = (text) => ({ type: "p", text });
+    const LI = (items) => ({ type: "list", items });
+    const NOTE = (text) => ({ type: "note", text });
+
+    // -------------------------------------------------------------------------
+    // WORLDVIEW CONTENT
+    // -------------------------------------------------------------------------
+    const WORLDVIEWS = [
+      {
+        id: "islam",
+        name: "Islam",
+        tagline: "Tawhid, the prophethood of Muhammad, and the denial of the cross",
+        family: "Abrahamic",
+        status: "full",
+        sections: {
+          believe: [
+            P("Islam is strict monotheism: one God (Allah), absolutely one and indivisible (tawhid). Muhammad is the final prophet (the 'Seal of the Prophets'), and the Qur'an is God's literal, uncreated, perfectly preserved word, sent to correct the corruption of earlier revelations."),
+            P("Jesus (Isa) is honored as a great prophet, born of the virgin Mary, a worker of miracles, and the Messiah — but emphatically not the Son of God and not divine. To call Jesus God is shirk: associating partners with God, the one unforgivable sin."),
+            P("Salvation is by submission (the literal meaning of islam) to God's will: belief and righteous deeds weighed on the Day of Judgment, with God's mercy decisive."),
+          ],
+          whyRight: [
+            P("Muslims point to the Qur'an's claimed literary inimitability (i'jaz) — the challenge to 'produce a surah like it' (Qur'an 2:23) — as a standing miracle authenticating Muhammad."),
+            P("They point to the Qur'an's preservation: a single text, memorized by millions (hafiz tradition), versus the textual variants of the Bible."),
+            P("They argue tawhid is rationally cleaner than the Trinity: one God is simpler than 'three in one,' which they hear as incoherent or polytheistic."),
+          ],
+          againstChrist: [
+            P("The strongest Muslim arguments, stated at full strength, are these:"),
+            LI([
+              "\"Jesus never once says the plain words, 'I am God, worship me.' If that were the central truth of the universe, why is it never stated outright?\"",
+              "\"Jesus himself says 'the Father is greater than I' (John 14:28) and prays to God — God does not pray to God.\"",
+              "\"God is one. Three-in-one is either incoherent or polytheism dressed up.\"",
+              "\"The Bible is textually corrupted — thousands of manuscript variants — so you cannot trust it the way we trust the Qur'an.\"",
+              "\"Paul, not Jesus, invented Christianity. Jesus preached submission to God; Paul preached a dying-and-rising god-man.\"",
+              "\"The Qur'an confirms the true revelation given to Moses and Jesus, and corrects where it was distorted.\"",
+            ]),
+          ],
+          theirTexts: [
+            P("On the absolute oneness of God and the denial that God begets a son:"),
+            Q("112:1-4"),
+            P("On the denial of the crucifixion — the single most important text for any Christian–Muslim debate:"),
+            Q("4:157"),
+            P("Two texts Muslims cite to affirm earlier Scripture (which a Christian can turn around):"),
+            Q("5:46-47"),
+            Q("10:94"),
+          ],
+          christianResponse: [
+            P("First, on Jesus' deity: he does claim it — in the idiom his hearers understood, and they tried to stone him for it each time."),
+            V("John 8:56-59"),
+            V("John 10:27-33"),
+            V("John 1:1-3"),
+            V("John 1:14"),
+            P("And he receives worship as God without correcting it:"),
+            V("John 20:26-29"),
+            P("On 'the Father is greater than I': in the incarnation the Son voluntarily takes a lower station (Philippians 2:6–8) — greater in position, not in nature. 'I and the Father are one' (John 10:30) and 'before Abraham was, I am' (John 8:58) sit in the same Gospel and cannot be ignored."),
+            P("On the cross: the crucifixion is among the best-attested events of antiquity — affirmed by the earliest creed of the church (within a few years of the event) and by hostile non-Christian writers."),
+            V("1 Corinthians 15:3-8"),
+            V("Isaiah 53:4-6"),
+            P("Now turn the Qur'an's own texts: it commands the People of the Gospel to judge by the Gospel they had (5:46–47) and tells Muhammad to consult the earlier Scriptures (10:94). But the Gospels in circulation in the 600s — the same ones we have — teach Jesus' death and resurrection. So either those Scriptures were reliable (and the Qur'an's denial of the cross fails) or they were already corrupt (and the Qur'an endorsed corrupt books). This is the Islamic dilemma."),
+            Q("5:46-47"),
+            Q("10:94"),
+          ],
+          theirRebuttal: [
+            P("Likely Muslim responses:"),
+            LI([
+              "\"John's Gospel is the latest and least historical; its high Christology is a late development, not Jesus' own words.\"",
+              "\"'Corruption' (tahrif) can mean corruption of meaning/interpretation, not just text — Christians misread reliable books.\"",
+              "\"Isaiah 53 is about the nation of Israel, or a prophet, not a crucified divine Messiah.\"",
+              "\"The 'I am' sayings are mistranslations or do not mean what Christians claim.\"",
+            ]),
+          ],
+          counterRebuttal: [
+            P("On John being 'late and unhistorical': even granting a later date, the high Christology is not unique to John — the pre-Pauline hymn in Philippians 2 and the creed in 1 Corinthians 15 are extremely early, within the first two decades. Worship of Jesus is primitive, not a late accretion."),
+            P("On tahrif meaning 'corruption of meaning': then the text itself is intact — which is fatal, because the intact text plainly teaches the death, resurrection, and deity of Christ. The Muslim cannot have it both ways: if the text is sound, its message stands; if the message is wrong, the text must be corrupt, and then 5:46 and 10:94 endorsed corrupt books."),
+            P("On the 'I am' sayings: the decisive evidence is the crowd's reaction. Twice they pick up stones (John 8:59; 10:31), and they state the charge themselves: 'you, being a man, make yourself God' (John 10:33). The native Aramaic/Greek-speaking audience heard a divine claim."),
+          ],
+          historical: [
+            P("The crucifixion of Jesus under Pontius Pilate is attested by Tacitus (Annals 15.44), Josephus (Antiquities 18.3), Lucian, and Mara bar Serapion — none of them Christian. Virtually no professional historian of any faith denies that Jesus was crucified; it meets the criterion of embarrassment (a crucified Messiah was a scandal no one would invent)."),
+            P("The Qur'an's denial (4:157) comes roughly 600 years later, from Arabia, with no independent line of evidence. As historical testimony, the gap is decisive."),
+            P("On Qur'anic preservation: the standard Muslim account itself records that Caliph Uthman ordered variant codices burned to standardize the text, and the Sana'a palimpsest shows an earlier, differing layer — so 'perfect preservation from the start' is more complicated than the popular claim."),
+          ],
+          philosophical: [
+            P("Tawhid faces its own problem: if God is absolutely solitary and was eternally alone before creation, then love, relationship, and communication are not eternal in God — they begin only when God creates. The Christian God, eternally Father, Son, and Spirit, is love within himself before and apart from creation (1 John 4:8). A God who must create in order to love is dependent on creation in a way the Trinity is not."),
+            P("Islam affirms Jesus' virgin birth, sinlessness, miracles, messiahship, and bodily ascension — an extraordinary set of concessions — while denying the one thing those facts most naturally point to."),
+          ],
+          traps: [
+            P("Trap 1 — Getting pulled into a Bible-vs-Qur'an manuscript shouting match. Don't. The Christian has the stronger textual-critical position (more, earlier, more geographically diverse manuscripts), but the deeper move is the Islamic dilemma: the Qur'an's own endorsement of prior Scripture."),
+            P("Trap 2 — Defending the Trinity as '1 = 3.' Never concede that framing. The claim is one being (what God is), three persons (who God is) — different categories, no contradiction."),
+            P("Trap 3 — Accepting 'Jesus never said I am God' on the questioner's terms. Reframe: in a first-century Jewish context, the divine claim is made by applying God's titles and prerogatives to himself, which is exactly what the 'I am,' the forgiving of sins, and the receiving of worship do."),
+          ],
+          questions: [
+            LI([
+              "\"The Qur'an tells the People of the Gospel to judge by the Gospel (5:46). Was the Gospel they had in the 600s reliable or corrupt? Either answer creates a problem — can you walk me through it?\"",
+              "\"If God was absolutely alone for eternity past, whom did he love before he created? What was the object of his love?\"",
+              "\"Every non-Christian historian of antiquity who mentions it says Jesus was crucified. On what historical evidence, written closer to the event, does the denial in 4:157 rest?\"",
+              "\"You accept Jesus' virgin birth, sinlessness, and miracles. What is your explanation for why God would honor a man who (on your view) falsely accepted worship?\"",
+            ]),
+          ],
+          theirTension: [
+            P("The Islamic dilemma: the Qur'an affirms the Tawrah and Injil as God's revelation and tells believers to consult them (5:46–47; 10:94), yet those very books teach the death, resurrection, and deity of Christ. The Qur'an either endorses corrupt scriptures or contradicts reliable ones. There is no third option that leaves both the Qur'an's endorsement and its denial of the cross intact."),
+          ],
+          ourTension: [
+            P("The Christian must give an honest account of how a genuinely monotheistic faith can affirm the full deity of Christ without becoming tritheism, and must be able to explain why the explicit, sentence-level claim 'I am God' is communicated through titles, actions, and the reactions of witnesses rather than a single bald statement. This is answerable — but it requires real work in the first-century Jewish context, not a proof-text dropped cold."),
+          ],
+          strategy: [
+            P("Lead with the Islamic dilemma, not with the Trinity. It is the strongest, most self-contained argument and uses the Qur'an's own words. Hold Jesus' deity in reserve and establish it from the reactions of his hearers rather than asserting it. Keep the tone respectful and curious — Muslims and Christians share monotheism, reverence for Jesus, and a high view of revelation, and that common ground is the doorway, not the obstacle."),
+          ],
+        },
+      },
+
+      {
+        id: "jw",
+        name: "Jehovah's Witnesses",
+        tagline: "Jesus as a created being, and the Trinity as pagan corruption",
+        family: "Restorationist",
+        status: "full",
+        sections: {
+          believe: [
+            P("Jehovah's Witnesses (the Watchtower Bible and Tract Society) teach strict unitarianism: only the Father, Jehovah, is God. Jesus is God's first and greatest creation — identified with Michael the archangel — through whom God then made everything else. The Holy Spirit is not a person but God's impersonal 'active force.'"),
+            P("They reject the Trinity as a pagan, post-biblical corruption. They use their own translation, the New World Translation (NWT)."),
+            P("Only 144,000 (the 'anointed') go to heaven; the faithful remainder live forever on a restored paradise earth. Salvation involves faith plus loyal works and association with the organization."),
+          ],
+          whyRight: [
+            P("They argue the Trinity is never stated in those words in the Bible and was formalized only at Nicaea (325), which they read as a pagan importation under Constantine."),
+            P("They point to verses where Jesus is subordinate to the Father ('the Father is greater than I,' John 14:28) and is called 'firstborn' and 'the beginning of the creation of God.'"),
+            P("They present themselves as the one organization that restored Jehovah's name and pure worship."),
+          ],
+          againstChrist: [
+            P("Stated at full strength:"),
+            LI([
+              "\"Jesus said plainly, 'the Father is greater than I' — the creature is never greater than God, so Jesus calling the Father greater shows Jesus is not Almighty God.\"",
+              "\"Colossians calls Jesus 'the firstborn of all creation' — firstborn means he was born/produced, i.e., created, first.\"",
+              "\"Revelation calls Jesus 'the beginning of the creation of God' — the beginning, the first one created.\"",
+              "\"The Trinity is a pagan triad (Babylon, Egypt, Rome) smuggled into the church centuries after the apostles.\"",
+            ]),
+          ],
+          theirTexts: [
+            P("Their signature translation choice, the hinge of the whole debate:"),
+            S("NWT John 1:1"),
+            P("They lean on 'firstborn' (Colossians 1:15) and 'the beginning of the creation' (Revelation 3:14) read as 'first created.'"),
+          ],
+          christianResponse: [
+            P("On John 1:1 and 'a god': the Word is the Creator of all things, so he cannot be a creature."),
+            V("John 1:1-3"),
+            P("The NWT's 'a god' rule is applied inconsistently within the same chapter — and the very next clauses make the Word the maker of everything. Colossians settles 'firstborn':"),
+            V("Colossians 1:15-17"),
+            P("'Firstborn' (prōtotokos) is a title of rank and inheritance, not chronology — and the text immediately says 'all things were created in him,' so he is not among created things. Hebrews has the Father address the Son directly as God and contrasts the Son with the angels (so the Son is not Michael):"),
+            V("Hebrews 1:5-13"),
+            P("Jesus receives and accepts worship as God:"),
+            V("John 20:28"),
+            V("Revelation 1:17-18"),
+            P("And the title Jesus takes in Revelation 1:17 ('the first and the last') is Jehovah's exclusive self-title:"),
+            V("Isaiah 44:6"),
+            P("The Trinitarian name is given by Jesus himself:"),
+            V("Matthew 28:19"),
+          ],
+          theirRebuttal: [
+            P("Likely responses:"),
+            LI([
+              "\"'Firstborn' can mean preeminent, sure, but it can also mean first-created; you're choosing the meaning that suits you.\"",
+              "\"Colossians says 'all OTHER things' were created through him (NWT).\"",
+              "\"Jesus is 'a mighty god,' not Almighty God — Isaiah 9:6 even calls him 'Mighty God,' a lesser title than 'Almighty.'\"",
+              "\"Thomas's 'my God' was an exclamation of surprise, not a confession.\"",
+            ]),
+          ],
+          counterRebuttal: [
+            P("On 'firstborn': the context decides, and Colossians 1:16 immediately grounds the title in 'for IN him all things were created' — the reason he is firstborn is that he is the Creator, not a creature. Psalm 89:27 uses 'firstborn' for the highest rank, explicitly defined as 'the highest of the kings of the earth,' for someone already born."),
+            P("On the NWT's 'all OTHER things': the word 'other' (Greek allos) is simply not in the text. It was inserted four times in this passage to manufacture the doctrine. Show the interlinear."),
+            P("On 'Mighty God vs Almighty God': Isaiah uses the exact phrase 'Mighty God' (El Gibbor) of Jehovah himself one chapter later, in Isaiah 10:21. If 'Mighty God' is a lesser being when applied to Jesus, it is a lesser being when applied to Jehovah — which no Witness will accept."),
+            P("On Thomas: Jesus does not rebuke a careless exclamation; he commends the confession and pronounces a blessing on those who will believe likewise (John 20:29). A Jew taking God's name in vain in worship to Jesus' face, uncorrected, is unthinkable unless the confession is true."),
+          ],
+          historical: [
+            P("On 'the Trinity was invented at Nicaea in 325': the worship of Jesus as divine is documented well before — Pliny the Younger (c. 112) reports Christians 'singing hymns to Christ as to a god,' and the New Testament texts above predate Nicaea by over two centuries. Nicaea defined and defended an existing belief against Arius; it did not invent it."),
+            P("The Watchtower's specific date-setting (1914, and earlier failed predictions of 1914/1925/1975 for various events) is a matter of public record and is relevant to its claim to be God's sole channel of truth."),
+          ],
+          philosophical: [
+            P("If only the Father is truly God and Jesus is a creature, then Christians for the first three centuries — and the New Testament writers — were committing idolatry by worshiping Jesus, and God allowed his church to fall into idolatry until the Watchtower corrected it in the 1870s. That is a very large claim about God abandoning his people."),
+            P("An impersonal 'active force' cannot be lied to, grieved, or blasphemed — yet Acts 5:3–4 says lying to the Holy Spirit is lying to God, and Ephesians 4:30 says the Spirit can be grieved. Forces are not grieved."),
+          ],
+          traps: [
+            P("Trap 1 — Debating Greek grammar on John 1:1 as if it's only about the article. The decisive point is internal consistency: the NWT does not follow its own stated rule. Move there quickly."),
+            P("Trap 2 — Letting 'firstborn' be discussed in isolation. Always read the next verse aloud; the context disarms it."),
+            P("Trap 3 — Getting buried in their stack of subordination verses one at a time. Grant freely that the incarnate Son is functionally subordinate; the question is nature, not role."),
+          ],
+          questions: [
+            LI([
+              "\"Colossians 1:16 in your Bible adds the word 'other' four times. Can you show me that word in the Greek interlinear?\"",
+              "\"Isaiah 44:6 says Jehovah alone is 'the first and the last.' Jesus says the same of himself in Revelation 1:17. How can there be two 'firsts and lasts'?\"",
+              "\"If Jesus is a created angel, why does Hebrews 1 spend the whole chapter saying the Son is superior to the angels and is addressed as 'God'?\"",
+              "\"Was the church worshiping a creature for 1,800 years until the Watchtower corrected it? What does that say about God's care for his people?\"",
+            ]),
+          ],
+          theirTension: [
+            P("The New World Translation's central readings ('a god' in John 1:1; 'other' in Colossians 1:16) are not defensible from the Greek by the translation committee's own stated rules — and the committee's credentials and method have never been openly published. The whole system depends on a translation that cannot be justified by the manuscripts."),
+          ],
+          ourTension: [
+            P("The Christian must be able to explain, calmly and from the text, how the Son can be both fully God (John 1:1; Colossians 2:9) and yet say 'the Father is greater than I' and 'the Son can do nothing of his own accord.' The answer — functional subordination within the incarnation, equality of nature — is biblical, but it must be shown, not merely asserted, or the Witness will feel the subordination verses were dodged."),
+          ],
+          strategy: [
+            P("Pick one hill: the inserted word 'other' in Colossians 1:16. It is concrete, visual (show the interlinear), and devastating, because it exposes the translation as theology-driven. From there, move to the 'first and the last' overlap between Isaiah 44:6 and Revelation 1:17, which is impossible to escape. Stay warm; many Witnesses are sincere and have never been shown their own interlinear."),
+          ],
+        },
+      },
+
+      {
+        id: "judaism",
+        name: "Judaism",
+        tagline: "The Messiah, the Shema, and the reading of Isaiah 53",
+        family: "Abrahamic",
+        status: "full",
+        sections: {
+          believe: [
+            P("Rabbinic Judaism affirms one God, indivisible, who gave the Torah to Israel at Sinai. The Messiah (Mashiach) will be a human descendant of David who gathers the exiles, rebuilds the Temple, brings world peace, and ushers in universal knowledge of God — none of which, the objection runs, Jesus did."),
+            P("Most strands reject the idea of God becoming a man as incompatible with the Shema and with God's transcendence. Atonement is through repentance, prayer, and (historically) sacrifice; Judaism does not teach inherited guilt requiring a dying savior."),
+          ],
+          whyRight: [
+            P("They argue Jesus did not fulfill the concrete, this-worldly messianic prophecies (peace, ingathering, a standing Temple, universal knowledge of God) — and Judaism does not expect a 'second coming' to finish the job."),
+            P("They argue the Trinity and incarnation violate the Shema's strict monotheism and God's nature ('God is not a man,' Numbers 23:19)."),
+            P("They read Isaiah 53's suffering servant as the nation of Israel, suffering among the nations, not an individual Messiah."),
+          ],
+          againstChrist: [
+            P("Stated at full strength:"),
+            LI([
+              "\"Jesus did not fulfill the messianic job description: no world peace, no ingathering of exiles, no rebuilt Temple, no universal knowledge of God. The world after Jesus looks unredeemed.\"",
+              "\"'God is not a man' (Numbers 23:19). The incarnation makes God into the very thing Scripture says he is not.\"",
+              "\"The Trinity violates the Shema (Deuteronomy 6:4): the LORD is one. You have made one into three.\"",
+              "\"Isaiah 53 is Israel, the servant of the LORD named as such throughout Isaiah 41–49 — not a crucified Messiah.\"",
+            ]),
+          ],
+          theirTexts: [
+            P("The Shema, the bedrock of Jewish monotheism:"),
+            V("Deuteronomy 6:4"),
+            P("And the interpretive crux — notice that some classical rabbinic sources themselves read Isaiah 53 messianically before the medieval national reading became standard:"),
+            S("Talmud Sanhedrin 98a"),
+          ],
+          christianResponse: [
+            P("On the Shema: 'one' (echad) is a word that allows composite unity (Genesis 2:24, two becoming 'one flesh'; Genesis 1:5, evening and morning 'one day'). The Shema affirms one God against polytheism; it does not, by itself, exclude plurality within that one being. Hebrew has a word for absolute singularity (yachid) — and the Shema does not use it."),
+            V("Deuteronomy 6:4"),
+            P("On the suffering servant: Isaiah 53 describes one who suffers FOR the people, distinct from them, sinless ('no deceit in his mouth'), who dies and yet 'prolongs his days' and 'sees his offspring' afterward — language hard to fit onto suffering national Israel."),
+            V("Isaiah 53:4-6"),
+            V("Isaiah 53:8-10"),
+            P("On Messiah's divine origin and reception of worship:"),
+            V("Daniel 7:13-14"),
+            V("Micah 5:2"),
+            P("On the LORD himself being pierced and mourned:"),
+            V("Zechariah 12:10"),
+            P("And the cry of the crucified, written a thousand years earlier:"),
+            V("Psalm 22:16-18"),
+            V("Psalm 22:1"),
+            P("On the need for a new covenant — promised within the Hebrew Scriptures themselves:"),
+            V("Jeremiah 31:31-34"),
+          ],
+          theirRebuttal: [
+            P("Likely responses:"),
+            LI([
+              "\"echad can mean composite, but in the Shema it plainly means God is one — you're importing plurality the text doesn't intend.\"",
+              "\"Isaiah explicitly calls Israel 'my servant' many times (41:8; 44:1; 49:3). The servant IS Israel.\"",
+              "\"Psalm 22's ka'ari means 'like a lion,' not 'pierced' — Christians mistranslate.\"",
+              "\"The Messiah's job is to finish the work in his lifetime. A Messiah who has to come back twice is not the Jewish Messiah.\"",
+            ]),
+          ],
+          counterRebuttal: [
+            P("On echad in the Shema: the point is not that echad must mean composite, but that it can — so the Shema cannot be used to rule out the Trinity a priori. The doctrine then rises or falls on other texts (Daniel 7, Zechariah 12, Isaiah 9), not on the Shema alone."),
+            P("On 'the servant is Israel': Isaiah does call Israel the servant collectively — but in Isaiah 53 the servant suffers FOR 'my people' (53:8), is sinless (53:9), and is an unblemished guilt offering (53:10). National Israel is repeatedly described in Isaiah as sinful and being punished for its own sins (e.g., 1:4; 42:24–25). A sinless servant who suffers for the sins of the people cannot be the sinful people themselves. And Isaiah 49 distinguishes the servant from national Israel: the servant has a mission TO Israel (49:5–6)."),
+            P("On Psalm 22's ka'ari: the Masoretic vowel-pointing reads 'like a lion,' but the consonantal tradition is contested — the Septuagint (pre-Christian Jewish translation) reads 'they pierced,' and a Dead Sea Scroll fragment from Nahal Hever reads ka'aru, supporting 'pierced.' This is a genuine textual question, and the older witnesses favor the Christian reading; it should be argued honestly, not asserted."),
+            P("On 'no second coming': the Hebrew Scriptures themselves present a Messiah who both suffers (Isaiah 53; Psalm 22; Zechariah 12) and reigns (Daniel 7; Isaiah 9). The two-stage reading is not a Christian invention to cover a failure — it is the most natural way to hold both sets of texts together, and some rabbinic traditions even spoke of two messianic figures (Messiah ben Joseph who suffers, Messiah ben David who reigns) for exactly this reason."),
+          ],
+          historical: [
+            P("Isaiah 53 and Psalm 22 predate Jesus by centuries — the Great Isaiah Scroll (1QIsaa) from Qumran, copied c. 125 BC, contains Isaiah 53 in full, removing any possibility that Christians wrote these prophecies after the fact."),
+            P("The crucifixion of Jesus is independently attested by Josephus (a Jewish historian) and Tacitus. Psalm 22's description of pierced hands and feet, counted bones, and divided garments matches Roman crucifixion — a method of execution that did not exist when the Psalm was written."),
+            P("The 'national Israel' reading of Isaiah 53 is not the original or unanimous Jewish reading; the Talmud (Sanhedrin 98b) and the Targum apply servant passages to the Messiah, and Rashi's national reading (11th c.) became dominant partly in the context of Christian–Jewish polemics."),
+          ],
+          philosophical: [
+            P("Judaism affirms a coming Messiah and an atonement once made through blood sacrifice (Leviticus 17:11, 'the life is in the blood'). Since AD 70 there has been no Temple and no sacrifice for nearly two millennia. The Christian asks: where is the atonement Leviticus requires, in a system that has had no altar for 1,900 years? Christianity answers that the final sacrifice has already been made."),
+          ],
+          traps: [
+            P("Trap 1 — Quoting Isaiah 53 as a knockout 'gotcha.' It is powerful but contested; lead with the logic (sinless servant suffering for a sinful people) rather than treating the reference as self-evident."),
+            P("Trap 2 — Asserting 'pierced' in Psalm 22 as if there's no dispute. There is. Acknowledging the textual question and then showing the older witnesses favor 'pierced' is far more persuasive than pretending it's settled."),
+            P("Trap 3 — Sounding like you're telling Jewish people what their own Scriptures 'really' mean. Frame it as 'here is how these texts were read within Judaism before the medieval period' — using Jewish sources — rather than lecturing from outside."),
+          ],
+          questions: [
+            LI([
+              "\"Isaiah 53 says the servant suffers for the sins of 'my people' and has 'no deceit in his mouth.' If the servant is the nation, how can the nation suffer for its own people, and how can a nation Isaiah elsewhere calls sinful be the sinless servant?\"",
+              "\"Leviticus 17:11 says atonement comes through blood on the altar. There has been no Temple and no sacrifice since AD 70. Where is Israel's atonement in the meantime?\"",
+              "\"The Shema says God is echad — the same word used for a man and wife becoming 'one flesh.' Why must echad here mean absolute solitary oneness rather than the compound unity the word often carries?\"",
+              "\"Zechariah 12:10 has the LORD say 'they will look on ME whom they pierced.' How is God pierced, and why does the nation mourn for him as for an only son?\"",
+            ]),
+          ],
+          theirTension: [
+            P("The atonement gap: the Torah ties atonement to blood sacrifice at the altar (Leviticus 17:11), yet rabbinic Judaism has lived for nearly 1,900 years with no Temple, no altar, and no sacrifice. The system's own foundational mechanism for dealing with sin has been unavailable for the entire rabbinic era, requiring a wholesale relocation of atonement to repentance and prayer that the Torah does not straightforwardly authorize."),
+          ],
+          ourTension: [
+            P("The Christian must honestly face the unfulfilled, this-worldly messianic expectations — visible world peace, the ingathering of exiles, universal knowledge of God — and give a coherent account of the two-stage (suffering, then reigning) fulfillment without making it sound like an after-the-fact patch. The strongest version grounds the two stages in the Hebrew text itself (Isaiah 53 + Daniel 7), but the unredeemed state of the present world is a real weight the Christian must carry, not wave away."),
+          ],
+          strategy: [
+            P("Argue from inside the Hebrew Bible and from Jewish sources, never against them. Lead with the atonement gap (Leviticus 17:11 with no Temple since 70) as a shared problem, then move to the logic of Isaiah 53 (a sinless servant suffering for a sinful people) and the divine-Messiah hints (Daniel 7, Zechariah 12, Micah 5:2). Acknowledge the textual disputes honestly — it builds the credibility that carries the harder points. Above all, remember the long, painful history of Christian mistreatment of Jews; humility and respect are not optional garnish here, they are the precondition for being heard at all."),
+          ],
+        },
+      },
+
+      { id: "mormonism", name: "Mormonism / LDS", tagline: "Exaltation, continuing revelation, and the Restoration", family: "Restorationist", status: "stub" },
+      { id: "catholicism", name: "Roman Catholicism", tagline: "Scripture, Tradition, Magisterium — and justification", family: "Christian tradition", status: "stub" },
+      { id: "orthodoxy", name: "Eastern Orthodoxy", tagline: "Holy Tradition, theosis, and apostolic succession", family: "Christian tradition", status: "stub" },
+      { id: "hinduism", name: "Hinduism", tagline: "Brahman, many paths, karma, and reincarnation", family: "Dharmic", status: "stub" },
+      { id: "buddhism", name: "Buddhism", tagline: "Suffering, no-self, and a path without a creator", family: "Dharmic", status: "stub" },
+      { id: "atheism", name: "Atheism / Naturalism", tagline: "The problem of evil, evidence, and morality without God", family: "Secular", status: "stub" },
+      { id: "agnosticism", name: "Agnosticism", tagline: "Can we know? Burden of proof and conflicting religions", family: "Secular", status: "stub" },
+      { id: "newage", name: "New Age / SBNR", tagline: "Truth within, energy, and Jesus as enlightened teacher", family: "Spiritual", status: "stub" },
+      { id: "progressive", name: "Progressive Christianity", tagline: "Biblical authority, atonement, and resurrection as metaphor", family: "Christian tradition", status: "stub" },
+      { id: "universalism", name: "Universalism", tagline: "Does love win? Judgment, hell, and the scope of salvation", family: "Christian tradition", status: "stub" },
+      { id: "paganism", name: "Paganism / Wicca / Occult", tagline: "Nature, magic, divination, and spiritual power", family: "Spiritual", status: "stub" },
+      { id: "sikhism", name: "Sikhism", tagline: "One God, the guru tradition, and the rejection of incarnation", family: "Dharmic", status: "stub" },
+      { id: "bahai", name: "Baha'i Faith", tagline: "Progressive revelation and the unity of all religions", family: "Abrahamic", status: "stub" },
+      { id: "scientology", name: "Scientology", tagline: "Thetans, auditing, and salvation as technology", family: "New religious movement", status: "stub" },
+      { id: "christianscience", name: "Christian Science", tagline: "Matter, sickness, and evil as illusion", family: "Restorationist", status: "stub" },
+      { id: "oneness", name: "Oneness Pentecostalism", tagline: "Modalism, Jesus-only baptism, and the persons of God", family: "Christian tradition", status: "stub" },
+      { id: "adventism", name: "Seventh-day Adventism", tagline: "Sabbath, investigative judgment, and Ellen White", family: "Restorationist", status: "stub" },
+    ];
+
+    // -------------------------------------------------------------------------
+    // TOP OBJECTIONS & ARGUMENTS
+    // -------------------------------------------------------------------------
+    const TOP_OBJECTIONS = [
+      { n: 1, title: "The problem of evil", body: "If God is all-good and all-powerful, why does evil exist? The Christian answer: the cross is God entering the suffering, not explaining it away — and the resurrection promises evil's final defeat. Best verse: Romans 8:18. Best question: 'On atheism, what makes anything truly evil rather than just disliked?'" },
+      { n: 2, title: "Trinity objections", body: "'Three gods' or 'incoherent.' Answer: one being (what), three persons (who) — distinct categories, no contradiction. Best question: 'Where exactly is the logical contradiction, given that being and person are different?'" },
+      { n: 3, title: "Bible corruption / textual criticism", body: "Answer: the New Testament is the best-attested ancient text by orders of magnitude; variants are mostly trivial and none touch core doctrine. Best question: 'By what standard would any ancient document count as reliable, and does the NT meet it better than the rest?'" },
+      { n: 4, title: "The hiddenness of God", body: "Answer: God has revealed himself decisively in a historical person; the issue is often moral, not merely evidential (John 3:19). Best question: 'What kind of evidence would actually be enough for you — and is that standard you apply consistently?'" },
+      { n: 5, title: "Hell", body: "Answer: hell is the honoring of a freely-chosen rejection of God, not arbitrary cruelty. Best question: 'Would a God who forced everyone to love him be more or less good?'" },
+      { n: 6, title: "Religious pluralism", body: "Answer: the religions make mutually exclusive truth-claims (Jesus died / did not die), so they cannot all be true. Best question: 'If two religions flatly contradict each other, can both be right?'" },
+      { n: 7, title: "Christian hypocrisy / church history", body: "Answer: the failures of Christians are real and are condemned by Christ's own teaching; the message is judged by its founder, not its worst followers. Best question: 'Are you measuring Christianity by Christ, or by people disobeying him?'" },
+      { n: 8, title: "Old Testament violence", body: "Answer: context, genre, and the trajectory toward the cross; the conquest texts are bounded, specific, and judicial, not a template. Best question: 'Are you objecting on a moral standard — and where does that standard come from on your worldview?'" },
+      { n: 9, title: "Science / evolution", body: "Answer: science describes mechanism; it does not settle the question of why anything exists at all. Best question: 'Does explaining how something works remove the question of why there is something rather than nothing?'" },
+      { n: 10, title: "The exclusivity of Christ", body: "Answer: if Christ is who he claimed, exclusivity is not arrogance but truthfulness. Best question: 'Is a true claim made arrogant simply by being exclusive — does 2+2=4 become arrogant for excluding 5?'" },
+    ];
+
+    const TOP_ARGUMENTS = [
+      { n: 1, title: "The resurrection of Jesus", body: "Evidence: the early creed (1 Cor 15:3–8) dates within a few years; the empty tomb; the transformation of frightened disciples into martyrs; the conversion of skeptics (James, Paul). Pressure point: every naturalistic theory (theft, hallucination, swoon) fails to explain the full set of facts together." },
+      { n: 2, title: "Reliability of the New Testament", body: "Evidence: thousands of early manuscripts, embarrassing details retained, named eyewitnesses, hostile corroboration. Pressure point: by any consistent standard of ancient history, the NT is the strongest-attested source we have." },
+      { n: 3, title: "Fulfilled prophecy", body: "Evidence: Isaiah 53, Psalm 22, Micah 5:2, Daniel 9 — preserved in pre-Christian manuscripts (Dead Sea Scrolls). Pressure point: the specificity (place, manner of death, timing) resists coincidence." },
+      { n: 4, title: "The moral argument", body: "Evidence: objective moral obligations exist; they are best grounded in a personal moral lawgiver. Pressure point: on naturalism, 'evil' reduces to preference — yet no one actually lives as though cruelty is merely disliked." },
+      { n: 5, title: "Contingency / cosmological argument", body: "Evidence: the universe began to exist and need not have; contingent things require a necessary ground. Pressure point: 'it just is' or 'it came from nothing' are assertions, not explanations." },
+      { n: 6, title: "Fine-tuning", body: "Evidence: the constants of physics sit in extraordinarily narrow life-permitting ranges. Pressure point: 'multiverse' multiplies unobservable entities to avoid design — is that more parsimonious than a designer?" },
+      { n: 7, title: "Consciousness", body: "Evidence: subjective first-person experience resists reduction to physical description. Pressure point: how does 'what it is like' arise from matter that, on naturalism, has no inner life?" },
+      { n: 8, title: "Human dignity / image of God", body: "Evidence: near-universal conviction of inherent human worth. Pressure point: on pure naturalism, where does inviolable dignity come from rather than mere usefulness or power?" },
+      { n: 9, title: "The problem of evil answered by cross and resurrection", body: "Evidence: Christianity does not solve evil abstractly but historically — God enters it and defeats it. Pressure point: no other worldview has a God who suffers with and for the sufferer." },
+      { n: 10, title: "The transformational power of Christ", body: "Evidence: documented, repeated, cross-cultural moral transformation. Pressure point: a 'mere myth' does not consistently produce this across millennia and cultures." },
+    ];
+
+    // -------------------------------------------------------------------------
+    // STYLES — calm AuDHD palette
+    // -------------------------------------------------------------------------
+    const CSS = `
+:root{
+  --bg:#10171a;
+  --panel:#162127;
+  --panel-2:#1b2b32;
+  --line:#26393f;
+  --ink:#e7eef0;
+  --ink-soft:#aebec3;
+  --ink-faint:#7c9097;
+  --accent:#6fb6a8;
+  --accent-deep:#3f8478;
+  --gold:#cda96a;
+  --gold-soft:#8a7747;
+  --warn:#c8946a;
+  --radius:14px;
+  --maxw:860px;
+  --fs-body:16px;
+  --lh:1.7;
+}
+*{box-sizing:border-box}
+.apx{
+  background:var(--bg); color:var(--ink);
+  font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  min-height:100vh; line-height:var(--lh); font-size:var(--fs-body);
+  -webkit-font-smoothing:antialiased;
+}
+.apx button{font-family:inherit}
+.apx ::selection{background:rgba(111,182,168,.3)}
+
+.apx-wrap{max-width:var(--maxw); margin:0 auto; padding:0 18px 80px}
+.apx-top{
+  position:sticky; top:0; z-index:30; background:rgba(16,23,26,.92);
+  backdrop-filter:blur(8px); border-bottom:1px solid var(--line);
+  padding:14px 18px; margin:0 -18px 0;
+}
+.apx-top-inner{max-width:var(--maxw); margin:0 auto; display:flex; align-items:center; gap:14px}
+.apx-mark{
+  font-family:'Iowan Old Style',Georgia,serif; font-size:19px; letter-spacing:.3px;
+  color:var(--ink); font-weight:600; line-height:1.2; flex:1; min-width:0;
+}
+.apx-mark small{display:block; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); font-family:'Inter',system-ui,sans-serif; margin-top:3px; font-weight:600}
+.apx-home-btn{
+  background:var(--panel-2); border:1px solid var(--line); color:var(--ink-soft);
+  border-radius:10px; padding:8px 12px; font-size:13px; cursor:pointer; white-space:nowrap;
+  font-family:'Inter',system-ui,sans-serif; transition:.15s;
+}
+.apx-home-btn:hover{border-color:var(--accent-deep); color:var(--ink)}
+.apx-home-btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.apx-hero{padding:46px 0 24px; text-align:left}
+.apx-eyebrow{font-family:'Inter',system-ui,sans-serif; font-size:11.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:16px}
+.apx-h1{font-size:clamp(30px,6vw,46px); line-height:1.12; margin:0 0 16px; font-weight:600; letter-spacing:-.01em}
+.apx-h1 .glow{color:var(--gold)}
+.apx-lead{font-size:17px; color:var(--ink-soft); max-width:60ch; margin:0 0 6px}
+.apx-meta-row{display:flex; flex-wrap:wrap; gap:8px; margin-top:22px}
+.apx-chip{font-family:'Inter',system-ui,sans-serif; font-size:11.5px; letter-spacing:.04em; color:var(--ink-faint); border:1px solid var(--line); border-radius:999px; padding:5px 12px}
+
+.apx-section-label{
+  font-family:'Inter',system-ui,sans-serif; font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--ink-faint); font-weight:600; margin:40px 0 14px; display:flex; align-items:center; gap:12px;
+}
+.apx-section-label::after{content:""; flex:1; height:1px; background:var(--line)}
+
+.apx-grid{display:grid; gap:12px}
+@media(min-width:620px){.apx-grid{grid-template-columns:1fr 1fr}}
+
+.apx-card{
+  text-align:left; background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--radius); padding:18px 18px 16px; cursor:pointer; transition:.16s;
+  position:relative; overflow:hidden; color:inherit; width:100%; display:block;
+}
+.apx-card::before{content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent-deep); opacity:.5; transition:.16s}
+.apx-card:hover{border-color:var(--accent-deep); transform:translateY(-1px)}
+.apx-card:hover::before{opacity:1; width:4px}
+.apx-card:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.apx-card.is-stub{opacity:.62}
+.apx-card.is-stub::before{background:var(--gold-soft)}
+.apx-card-name{font-size:19px; font-weight:600; margin:0 0 4px; line-height:1.2}
+.apx-card-tag{font-size:13.5px; color:var(--ink-soft); line-height:1.5; margin:0}
+.apx-card-foot{display:flex; align-items:center; justify-content:space-between; margin-top:12px}
+.apx-card-fam{font-family:'Inter',system-ui,sans-serif; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint)}
+.apx-badge{font-family:'Inter',system-ui,sans-serif; font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:3px 8px; border-radius:999px; font-weight:600}
+.apx-badge.ready{background:rgba(111,182,168,.14); color:var(--accent)}
+.apx-badge.soon{background:rgba(205,169,106,.12); color:var(--gold)}
+
+.apx-detail-head{padding:34px 0 8px}
+.apx-detail-fam{font-family:'Inter',system-ui,sans-serif; font-size:11.5px; letter-spacing:.18em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:12px}
+.apx-detail-h{font-size:clamp(28px,5.5vw,40px); margin:0 0 12px; font-weight:600; letter-spacing:-.01em}
+.apx-detail-tag{font-size:16.5px; color:var(--ink-soft); max-width:58ch; margin:0}
+
+.apx-progress{display:flex; gap:6px; margin:24px 0 8px; flex-wrap:wrap}
+.apx-prog-pill{font-family:'Inter',system-ui,sans-serif; font-size:11px; color:var(--ink-faint); border:1px solid var(--line); border-radius:8px; padding:6px 9px; cursor:pointer; background:transparent; transition:.14s}
+.apx-prog-pill:hover{border-color:var(--accent-deep); color:var(--ink-soft)}
+.apx-prog-pill:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+.apx-sec{border:1px solid var(--line); border-radius:12px; margin-top:10px; background:var(--panel); overflow:hidden}
+.apx-sec.open{border-color:var(--accent-deep)}
+.apx-sec-btn{
+  width:100%; text-align:left; background:transparent; border:0; color:var(--ink);
+  padding:16px 16px; display:flex; align-items:center; gap:13px; cursor:pointer; font-size:16.5px; font-weight:600;
+}
+.apx-sec-btn:hover{background:var(--panel-2)}
+.apx-sec-btn:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.apx-sec-icon{
+  width:30px; height:30px; flex:none; display:grid; place-items:center; border-radius:8px;
+  background:var(--panel-2); border:1px solid var(--line); color:var(--accent); font-size:15px;
+}
+.apx-sec-num{font-family:'Inter',system-ui,sans-serif; font-size:11px; color:var(--ink-faint); margin-right:2px; font-weight:600; min-width:20px}
+.apx-sec-label{flex:1}
+.apx-sec-caret{color:var(--ink-faint); transition:.2s; font-size:13px; flex:none}
+.apx-sec.open .apx-sec-caret{transform:rotate(90deg); color:var(--accent)}
+.apx-sec-body{padding:2px 18px 20px; border-top:1px solid var(--line)}
+.apx-sec-body > *:first-child{margin-top:14px}
+
+.apx-p{margin:13px 0; color:var(--ink); max-width:64ch}
+.apx-note{margin:13px 0; padding:12px 14px; border-left:3px solid var(--gold-soft); background:rgba(205,169,106,.06); color:var(--ink-soft); font-size:14.5px; border-radius:0 8px 8px 0}
+.apx-ul{margin:13px 0; padding:0; list-style:none; display:grid; gap:9px}
+.apx-ul li{position:relative; padding-left:20px; color:var(--ink); max-width:64ch}
+.apx-ul li::before{content:"—"; position:absolute; left:0; color:var(--accent); font-weight:600}
+
+.apx-vcard{border:1px solid var(--line); border-radius:12px; margin:16px 0; overflow:hidden; background:var(--panel-2)}
+.apx-vhead{
+  display:flex; align-items:center; gap:10px; padding:11px 14px; background:rgba(205,169,106,.08);
+  border-bottom:1px solid var(--line);
+}
+.apx-vref{font-family:'Inter',system-ui,sans-serif; font-weight:700; font-size:13.5px; letter-spacing:.02em; color:var(--gold); flex:1}
+.apx-vtag{font-family:'Inter',system-ui,sans-serif; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint)}
+.apx-vbody{padding:4px 14px 14px}
+.apx-vcols{display:grid; gap:0}
+@media(min-width:600px){.apx-vcols.two{grid-template-columns:1fr 1fr; gap:18px}}
+.apx-vcol{padding-top:12px}
+.apx-vcol-label{font-family:'Inter',system-ui,sans-serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:700; margin-bottom:5px}
+.apx-vtext{font-size:15px; color:var(--ink); line-height:1.65}
+
+.apx-orig-toggle{
+  margin-top:12px; background:var(--panel); border:1px solid var(--line); color:var(--accent);
+  font-family:'Inter',system-ui,sans-serif; font-size:12px; font-weight:600; letter-spacing:.03em;
+  padding:7px 12px; border-radius:8px; cursor:pointer; transition:.14s; display:inline-flex; align-items:center; gap:7px;
+}
+.apx-orig-toggle:hover{border-color:var(--accent-deep); background:var(--panel-2)}
+.apx-orig-toggle:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.apx-orig{margin-top:12px; padding:14px; border:1px dashed var(--line); border-radius:10px; background:var(--panel)}
+.apx-orig-lang{font-family:'Inter',system-ui,sans-serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--gold); font-weight:700; margin-bottom:8px}
+.apx-orig-script{font-size:22px; line-height:1.9; color:var(--ink); margin-bottom:6px; direction:rtl; text-align:right; font-family:'Times New Roman',serif}
+.apx-orig-script.ltr{direction:ltr; text-align:left}
+.apx-orig-translit{font-style:italic; color:var(--ink-soft); font-size:14.5px; margin-bottom:12px}
+.apx-wordnote{border-top:1px solid var(--line); padding-top:10px; margin-top:10px; font-size:13.5px}
+.apx-wordnote-term{color:var(--gold); font-weight:600; margin-right:6px}
+.apx-wordnote-tl{color:var(--ink-faint); font-style:italic; margin-right:6px}
+.apx-wordnote-gloss{color:var(--ink-soft); display:block; margin-top:3px; line-height:1.55}
+
+.apx-vcard.src .apx-vhead{background:rgba(111,182,168,.08)}
+.apx-vcard.src .apx-vref{color:var(--accent)}
+
+.apx-stub{border:1px dashed var(--gold-soft); border-radius:14px; padding:28px; margin-top:20px; background:rgba(205,169,106,.05)}
+.apx-stub h3{margin:0 0 10px; font-size:19px; color:var(--gold)}
+.apx-stub p{color:var(--ink-soft); margin:8px 0; max-width:62ch}
+.apx-stub ul{color:var(--ink-soft); margin:12px 0; padding-left:20px; display:grid; gap:5px}
+
+.apx-rank{display:grid; gap:10px; margin-top:14px}
+.apx-rankitem{border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden}
+.apx-rankbtn{width:100%; text-align:left; background:transparent; border:0; color:var(--ink); padding:15px 16px; display:flex; align-items:center; gap:13px; cursor:pointer}
+.apx-rankbtn:hover{background:var(--panel-2)}
+.apx-rankbtn:focus-visible{outline:2px solid var(--accent); outline-offset:-2px}
+.apx-ranknum{font-family:'Inter',system-ui,sans-serif; width:28px; height:28px; flex:none; display:grid; place-items:center; border-radius:8px; background:var(--panel-2); border:1px solid var(--line); color:var(--accent); font-weight:700; font-size:13px}
+.apx-ranktitle{flex:1; font-weight:600; font-size:16px}
+.apx-rankbody{padding:0 16px 16px 57px; color:var(--ink-soft); font-size:14.5px; line-height:1.65; border-top:1px solid var(--line); padding-top:13px}
+
+.apx-foot{margin-top:50px; padding-top:24px; border-top:1px solid var(--line); color:var(--ink-faint); font-size:13px; font-family:'Inter',system-ui,sans-serif; line-height:1.6}
+
+@media (prefers-reduced-motion: reduce){
+  .apx *{transition:none !important}
+}
+`;
+
+    // -------------------------------------------------------------------------
+    // COMPONENTS
+    // -------------------------------------------------------------------------
+    function Scripture({ vkey }) {
+      const v = VERSES[vkey];
+      const [showOrig, setShowOrig] = useState(false);
+      if (!v) return null;
+      return (
+        <div className="apx-vcard">
+          <div className="apx-vhead">
+            <span className="apx-vref">{v.ref}</span>
+            <span className="apx-vtag">ESV · KJV</span>
+          </div>
+          <div className="apx-vbody">
+            <div className="apx-vcols two">
+              <div className="apx-vcol">
+                <div className="apx-vcol-label">English Standard</div>
+                <div className="apx-vtext">{v.esv}</div>
+              </div>
+              <div className="apx-vcol">
+                <div className="apx-vcol-label">King James</div>
+                <div className="apx-vtext">{v.kjv}</div>
+              </div>
+            </div>
+            {v.original && (
+              <>
+                <button className="apx-orig-toggle" onClick={() => setShowOrig(s => !s)} aria-expanded={showOrig}>
+                  {showOrig ? "▾ Hide" : "▸ Show"} {v.original.lang} text &amp; word notes
+                </button>
+                {showOrig && (
+                  <div className="apx-orig">
+                    <div className="apx-orig-lang">{v.original.lang}</div>
+                    <div className={"apx-orig-script" + (v.original.lang === "Greek" ? " ltr" : "")}>{v.original.script}</div>
+                    <div className="apx-orig-translit">{v.original.translit}</div>
+                    {v.original.notes?.map((n, i) => (
+                      <div className="apx-wordnote" key={i}>
+                        <span className="apx-wordnote-term">{n[0]}</span>
+                        <span className="apx-wordnote-tl">{n[1]}</span>
+                        <span className="apx-wordnote-gloss">{n[2]}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function QuranCard({ qkey }) {
+      const q = QURAN[qkey];
+      const [showOrig, setShowOrig] = useState(false);
+      if (!q) return null;
+      return (
+        <div className="apx-vcard src">
+          <div className="apx-vhead">
+            <span className="apx-vref">{q.ref}</span>
+            <span className="apx-vtag">Qur'an</span>
+          </div>
+          <div className="apx-vbody">
+            <div className="apx-vcol" style={{ paddingTop: 12 }}>
+              <div className="apx-vcol-label">Translation</div>
+              <div className="apx-vtext">{q.translation}</div>
+            </div>
+            <button className="apx-orig-toggle" onClick={() => setShowOrig(s => !s)} aria-expanded={showOrig}>
+              {showOrig ? "▾ Hide" : "▸ Show"} Arabic &amp; transliteration
+            </button>
+            {showOrig && (
+              <div className="apx-orig">
+                <div className="apx-orig-lang">Arabic</div>
+                <div className="apx-orig-script">{q.arabic}</div>
+                <div className="apx-orig-translit">{q.translit}</div>
+              </div>
+            )}
+            {q.note && <div className="apx-note" style={{ marginTop: 12 }}>{q.note}</div>}
+          </div>
+        </div>
+      );
+    }
+
+    function SourceCard({ skey }) {
+      const s = SOURCES[skey];
+      if (!s) return null;
+      return (
+        <div className="apx-vcard src">
+          <div className="apx-vhead">
+            <span className="apx-vref">{s.ref}</span>
+            <span className="apx-vtag">Source</span>
+          </div>
+          <div className="apx-vbody">
+            <div className="apx-vcol" style={{ paddingTop: 12 }}>
+              <div className="apx-vcol-label">Quoted</div>
+              <div className="apx-vtext" style={{ fontStyle: "italic" }}>{s.original}</div>
+            </div>
+            {s.note && <div className="apx-note" style={{ marginTop: 12 }}>{s.note}</div>}
+          </div>
+        </div>
+      );
+    }
+
+    function Block({ node }) {
+      if (node.type === "p") return <p className="apx-p">{node.text}</p>;
+      if (node.type === "note") return <div className="apx-note">{node.text}</div>;
+      if (node.type === "list")
+        return (
+          <ul className="apx-ul">
+            {node.items.map((it, i) => <li key={i}>{it}</li>)}
+          </ul>
+        );
+      if (node.type === "verse") return <Scripture vkey={node.k} />;
+      if (node.type === "quran") return <QuranCard qkey={node.k} />;
+      if (node.type === "source") return <SourceCard skey={node.k} />;
+      return null;
+    }
+
+    function Section({ def, idx, content, open, onToggle }) {
+      return (
+        <div className={"apx-sec" + (open ? " open" : "")}>
+          <button className="apx-sec-btn" onClick={onToggle} aria-expanded={open}>
+            <span className="apx-sec-icon">{def.icon}</span>
+            <span className="apx-sec-num">{String(idx + 1).padStart(2, "0")}</span>
+            <span className="apx-sec-label">{def.label}</span>
+            <span className="apx-sec-caret">▶</span>
+          </button>
+          {open && (
+            <div className="apx-sec-body">
+              {content.map((node, i) => <Block node={node} key={i} />)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function WorldviewDetail({ wv, onHome }) {
+      const [openKeys, setOpenKeys] = useState(() => new Set(wv.status === "full" ? ["believe"] : []));
+      const topRef = useRef(null);
+
+      useEffect(() => {
+        topRef.current?.scrollIntoView({ block: "start" });
+      }, [wv.id]);
+
+      const toggle = (k) =>
+        setOpenKeys(prev => {
+          const n = new Set(prev);
+          n.has(k) ? n.delete(k) : n.add(k);
+          return n;
+        });
+
+      const allOpen = wv.status === "full" && openKeys.size === SECTION_DEFS.length;
+      const expandAll = () => setOpenKeys(allOpen ? new Set() : new Set(SECTION_DEFS.map(d => d.key)));
+
+      return (
+        <div ref={topRef}>
+          <div className="apx-detail-head">
+            <div className="apx-detail-fam">{wv.family}</div>
+            <h1 className="apx-detail-h">{wv.name}</h1>
+            <p className="apx-detail-tag">{wv.tagline}</p>
+          </div>
+
+          {wv.status === "full" ? (
+            <>
+              <div className="apx-progress">
+                <button className="apx-prog-pill" onClick={expandAll}>
+                  {allOpen ? "Collapse all 14" : "Expand all 14"}
+                </button>
+              </div>
+              {SECTION_DEFS.map((def, idx) => (
+                <Section
+                  key={def.key}
+                  def={def}
+                  idx={idx}
+                  content={wv.sections[def.key] || [P("—")]}
+                  open={openKeys.has(def.key)}
+                  onToggle={() => toggle(def.key)}
+                />
+              ))}
+            </>
+          ) : (
+            <div className="apx-stub">
+              <h3>Ready to populate</h3>
+              <p>
+                The full 14-part debate map for {wv.name} isn't written yet. The app structure,
+                scripture engine, and original-language display are all in place — this entry just
+                needs its content filled in.
+              </p>
+              <p style={{ color: "var(--ink-faint)", fontSize: 14 }}>Each section will cover:</p>
+              <ul>
+                {SECTION_DEFS.map(d => <li key={d.key}>{d.icon} {d.label}</li>)}
+              </ul>
+            </div>
+          )}
+
+          <div className="apx-foot">
+            Verses are shown ESV and KJV side by side. Original Hebrew, Greek, Aramaic, and
+            Arabic appear behind the "show" toggles with transliteration and word notes. Every
+            opposing view is stated at its strongest before it is answered.
+          </div>
+        </div>
+      );
+    }
+
+    function RankList({ items }) {
+      const [open, setOpen] = useState(null);
+      return (
+        <div className="apx-rank">
+          {items.map(it => (
+            <div className="apx-rankitem" key={it.n}>
+              <button
+                className="apx-rankbtn"
+                onClick={() => setOpen(open === it.n ? null : it.n)}
+                aria-expanded={open === it.n}
+              >
+                <span className="apx-ranknum">{it.n}</span>
+                <span className="apx-ranktitle">{it.title}</span>
+                <span className="apx-sec-caret" style={{ transform: open === it.n ? "rotate(90deg)" : "none" }}>▶</span>
+              </button>
+              {open === it.n && <div className="apx-rankbody">{it.body}</div>}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function Index({ onPick }) {
+      return (
+        <>
+          <div className="apx-hero">
+            <div className="apx-eyebrow">My Apologetics Debate Map</div>
+            <h1 className="apx-h1">
+              Steelman every view.<br />
+              Then answer it with <span className="glow">the text itself.</span>
+            </h1>
+            <p className="apx-lead">
+              A debate-ready map of major world religions and worldviews — stated at full strength,
+              then answered with Scripture (ESV &amp; KJV side by side) plus the original Hebrew,
+              Greek, Aramaic, or Arabic with word notes.
+            </p>
+            <div className="apx-meta-row">
+              <span className="apx-chip">14-part structure</span>
+              <span className="apx-chip">Original-language text</span>
+              <span className="apx-chip">No strawmen</span>
+              <span className="apx-chip">One focus at a time</span>
+            </div>
+          </div>
+
+          <div className="apx-section-label">Worldviews</div>
+          <div className="apx-grid">
+            {WORLDVIEWS.map(wv => (
+              <button key={wv.id} className={"apx-card" + (wv.status === "stub" ? " is-stub" : "")} onClick={() => onPick(wv.id)}>
+                <div className="apx-card-name">{wv.name}</div>
+                <p className="apx-card-tag">{wv.tagline}</p>
+                <div className="apx-card-foot">
+                  <span className="apx-card-fam">{wv.family}</span>
+                  <span className={"apx-badge " + (wv.status === "full" ? "ready" : "soon")}>
+                    {wv.status === "full" ? "Full map" : "Ready to fill"}
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="apx-section-label">Strongest objections to Christianity</div>
+          <p className="apx-lead" style={{ fontSize: 15, marginBottom: 4 }}>
+            Tap any one for the answer, the likely rebuttal, and the best question to ask back.
+          </p>
+          <RankList items={TOP_OBJECTIONS} />
+
+          <div className="apx-section-label">Strongest arguments for Christianity</div>
+          <p className="apx-lead" style={{ fontSize: 15, marginBottom: 4 }}>
+            Tap any one for the evidence, the objection, the response, and the pressure point.
+          </p>
+          <RankList items={TOP_ARGUMENTS} />
+
+          <div className="apx-foot">
+            Three full maps are written (Islam, Jehovah's Witnesses, Judaism). The remaining
+            seventeen are scaffolded and ready to expand. Every opposing view is made as strong
+            as possible before it is answered.
+          </div>
+        </>
+      );
+    }
+
+    function ApologeticsMap() {
+      const [activeId, setActiveId] = useState(null);
+      const active = useMemo(() => WORLDVIEWS.find(w => w.id === activeId), [activeId]);
+
+      return (
+        <div className="apx">
+          <style>{CSS}</style>
+          <div className="apx-top">
+            <div className="apx-top-inner">
+              <div className="apx-mark">
+                My Debate Map
+                <small>Christian Apologetics</small>
+              </div>
+              {active && (
+                <button className="apx-home-btn" onClick={() => setActiveId(null)}>
+                  ← All worldviews
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="apx-wrap">
+            {active
+              ? <WorldviewDetail wv={active} onHome={() => setActiveId(null)} />
+              : <Index onPick={setActiveId} />
+            }
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<ApologeticsMap />);
+    document.getElementById('loading').style.display = 'none';
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
