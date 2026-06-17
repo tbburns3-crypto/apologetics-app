@@ -3645,6 +3645,10 @@
 
 .apx-p{margin:13px 0; color:var(--ink); max-width:64ch}
 .apx-note{margin:13px 0; padding:12px 14px; border-left:3px solid var(--gold-soft); background:rgba(205,169,106,.06); color:var(--ink-soft); font-size:14.5px; border-radius:0 8px 8px 0}
+.apx-analogy-card{border-left-color:#5fa87a; background:rgba(95,168,122,.07); margin-bottom:12px}
+.apx-analogy-intro{color:var(--ink-faint); font-size:13.5px; margin-bottom:14px; font-style:italic}
+.apx-analogies-master-item{margin-bottom:6px}
+.apx-analogies-count{display:inline-block; min-width:28px; text-align:center; background:rgba(95,168,122,.15); color:#5fa87a; border-radius:4px; font-size:12px; font-weight:700; padding:1px 5px; margin-right:10px}
 .apx-ul{margin:13px 0; padding:0; list-style:none; display:grid; gap:9px}
 .apx-ul li{position:relative; padding-left:20px; color:var(--ink); max-width:64ch}
 .apx-ul li::before{content:"-"; position:absolute; left:0; color:var(--accent); font-weight:600}
@@ -3838,6 +3842,78 @@
       );
     }
 
+    function extractAnalogies(wv) {
+      const result = [];
+      if (!wv.sections) return result;
+      Object.values(wv.sections).forEach(nodes => {
+        if (!Array.isArray(nodes)) return;
+        nodes.forEach(node => {
+          if (node.type === "note" && typeof node.text === "string" && node.text.startsWith("Analogy:")) {
+            result.push(node.text);
+          }
+        });
+      });
+      return result;
+    }
+
+    function KeyAnalogies({ wv }) {
+      const [open, setOpen] = useState(false);
+      const analogies = useMemo(() => extractAnalogies(wv), [wv.id]);
+      if (analogies.length === 0) return null;
+      return (
+        <div className={"apx-sec" + (open ? " open" : "")}>
+          <button className="apx-sec-btn" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+            <span className="apx-sec-icon">◉</span>
+            <span className="apx-sec-num">★</span>
+            <span className="apx-sec-label">Key Analogies &amp; Comparisons ({analogies.length})</span>
+            <span className="apx-sec-caret">▶</span>
+          </button>
+          {open && (
+            <div className="apx-sec-body">
+              <p className="apx-analogy-intro">Real-world comparisons to use in conversation when explaining these concepts.</p>
+              {analogies.map((text, i) => (
+                <div key={i} className="apx-note apx-analogy-card">{text}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function AnalogiesMaster() {
+      const [openId, setOpenId] = useState(null);
+      const byWorldview = useMemo(() =>
+        WORLDVIEWS
+          .map(wv => ({ wv, analogies: extractAnalogies(wv) }))
+          .filter(({ analogies }) => analogies.length > 0),
+        []
+      );
+      return (
+        <div className="apx-rank">
+          {byWorldview.map(({ wv, analogies }) => (
+            <div className="apx-rankitem apx-analogies-master-item" key={wv.id}>
+              <button
+                className="apx-rankbtn"
+                onClick={() => setOpenId(openId === wv.id ? null : wv.id)}
+                aria-expanded={openId === wv.id}
+              >
+                <span className="apx-analogies-count">{analogies.length}</span>
+                <span className="apx-ranktitle">{wv.name}</span>
+                <span className="apx-sec-caret" style={{ transform: openId === wv.id ? "rotate(90deg)" : "none" }}>▶</span>
+              </button>
+              {openId === wv.id && (
+                <div className="apx-rankbody">
+                  {analogies.map((text, i) => (
+                    <div key={i} className="apx-note apx-analogy-card" style={{ marginBottom: 10 }}>{text}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     function WorldviewDetail({ wv, onHome }) {
       const [openKeys, setOpenKeys] = useState(() => new Set(wv.status === "full" ? ["believe"] : []));
       const topRef = useRef(null);
@@ -3881,6 +3957,7 @@
                   onToggle={() => toggle(def.key)}
                 />
               ))}
+              <KeyAnalogies wv={wv} />
             </>
           ) : (
             <div className="apx-stub">
@@ -3977,6 +4054,12 @@
             Tap any one for the evidence, the objection, the response, and the pressure point.
           </p>
           <RankList items={TOP_ARGUMENTS} />
+
+          <div className="apx-section-label">Real-world analogies &amp; comparisons</div>
+          <p className="apx-lead" style={{ fontSize: 15, marginBottom: 4 }}>
+            Every worldview's analogies in one place — tap a worldview to see comparisons you can use in conversation. The number shows how many analogies that map contains.
+          </p>
+          <AnalogiesMaster />
 
           <div className="apx-foot">
             Three full maps are written (Islam, Jehovah's Witnesses, Judaism). The remaining
